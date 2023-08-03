@@ -8,6 +8,12 @@ from transcript import get_transcript_of_yt_video
 from translate import g_translate
 from string import punctuation
 import random
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+import time
+
+
 
 nlp = spacy.load("en_core_web_sm")
 stop_words = set(stopwords.words("english"))
@@ -153,4 +159,53 @@ def generate_quiz_questions(text, num_questions=5):
         questions.append(question)
 
     return questions
+
+
+def gen_quiz(txt):
+     # Configure Chrome to run in headless mode
+    options = Options()
+    options.headless = False
+    options.add_argument("user-data-dir=C:\\Users\\arehm\\AppData\\Local\\Google\\Chrome\\User Data")
+    driver = webdriver.Chrome(options=options)
+
+            # Load the search page
+    driver.get(url="https://opexams.com/free-questions-generator" )
+    time.sleep(10)
+            # Find the search input field and enter the keyword
+    search_input = driver.find_element(By.XPATH, '//*[@id="text-input"]')
+    search_input.clear()
+    time.sleep(5)
+    search_input.send_keys(txt)
+    time.sleep(10)
+        
+
+            # Click on the search button
+    option_button = driver.find_element(By.XPATH, '//*[@id="gatsby-focus-wrapper"]/div/div[2]/div[4]/div[1]/div[2]/div[2]/div[1]/div[2]')
+    option_button.click()
+    time.sleep(10)
+
+            # Click on the search button
+    search_button = driver.find_element(By.XPATH, '//*[@id="gatsby-focus-wrapper"]/div/div[2]/div[4]/div[1]/div[2]/div[2]/div[2]/button[1]')
+    search_button.click()
+    time.sleep(10)
+
+    # close_button = driver.find_element(By.XPATH, '/html/body/div/div[1]/div/div[2]/div[2]/div/div[1]/button')
+    #         # Click on the search button
+    # if (close_button):
+    #     close_button.click()
+    #     time.sleep(10)
+
+    captions = []
+    for i in range(1, 6):
+        div_element = driver.find_element(By.XPATH, f'//*[@id="questions_list"]/div[1]/div[{i}]/div[3]/span')
+        div_element_option = driver.find_element(By.XPATH, f'//*[@id="questions_list"]/div[1]/div[{i}]//div[contains(@class, "jss460")]/p')
+            
+        div_text = div_element.text.strip()
+        option_text = div_element_option.text.strip()
+        captions.append({"question": div_text, "answer": option_text, "id" : i})
+        # captions.append(div_text)
+        
+    driver.quit()
+    
+    return captions
 

@@ -1,15 +1,100 @@
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS, cross_origin
-from model import nlp_model, generate_quiz_questions
+from model import nlp_model, generate_quiz_questions, gen_quiz
+from flask_mysqldb import MySQL
+import os
 
 app = Flask(__name__)
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+app.config['MYSQL_HOST'] = 'sql6.freesqldatabase.com'
+app.config['MYSQL_USER'] = 'sql6635952'
+app.config['MYSQL_PASSWORD'] = 'KwbjuFXVt8'
+app.config['MYSQL_DB'] = 'sql6635952'
+
+mysql = MySQL(app)
+
+upload_folder = os.path.join('static', 'uploads')
+app.config['UPLOAD'] = upload_folder
+
+def build_response(body):
+    response = jsonify(body)
+    return response
 
 
 @app.before_request
 def basic_authentication():
     if request.method.lower() == "options":
         return Response()
+
+@app.route("/signup", methods =['GET'],strict_slashes=False)
+@cross_origin(supports_credentials=True)
+def signUp():
+    response = request.json
+    Fname = request.args.get("Fname", None)
+    Lname = request.args.get("Lname", None)
+    Email = request.args.get("Email", None)
+    password = request.args.get("password", None)
+    
+    print(response)
+    data={}
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT Email FROM User WHERE Email = %s" , (Email,))
+    userDb = list(cursor.fetchall())
+    mysql.connection.commit()
+    cursor.close()
+    ifUserExists = len(userDb) > 0
+    if (ifUserExists):
+        data['status'] = False
+        data['message'] = "User already Exists"
+        return build_response(data)
+    
+    cursor = mysql.connection.cursor()
+    cursor.execute(''' INSERT INTO User VALUES(%s,%s,%s,%s)''', (Fname, Lname, Email, password,))
+    mysql.connection.commit()
+    cursor.close()
+    data['status'] = True
+    data['message'] = "Signup Successfull"
+    return build_response(data)
+
+@app.route("/signin", methods =['GET'])
+@cross_origin(supports_credentials=True)
+
+def signIn():
+    data = {}
+    response = request.json
+    Email = request.args.get("Email", None)
+    password = request.args.get("password", None)
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT Email FROM User WHERE Email = %s" , (Email,))
+    userDb = list(cursor.fetchall())
+    mysql.connection.commit()
+    cursor.close()
+    ifUserExists = len(userDb) > 0
+    if (not ifUserExists):
+        data['status'] = False
+        data['message'] = "User Does not exists"
+        return build_response(data)
+    
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT password FROM User WHERE Email = %s" , (Email,))
+    userDb = list(cursor.fetchall())
+    print(password)
+    isPassCorrect =  userDb[0][0] == password
+    mysql.connection.commit()
+    cursor.close()
+    if (not isPassCorrect):
+        data['status'] = False
+        data['message'] = "Incorrect Password"
+        return build_response(data)
+
+    data['status'] = True
+    data['message'] = "Login Successfull"
+
+    return build_response(data)
+
+
+
 
 
 @app.route("/api/", methods=["GET"], strict_slashes=False)
@@ -53,7 +138,7 @@ def respond():
             data["message"] = "Success"
             data["id"] = video_id
             data["result"] = result
-            data["quiz_questions"] = generate_quiz_questions(result["eng_summary"])
+            data["quiz_questions"] = gen_quiz(result["eng_summary"])
 
     body["data"] = data
 
